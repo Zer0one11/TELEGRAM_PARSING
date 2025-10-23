@@ -20,7 +20,7 @@
             <div class="search-block">
                 <input type="text" id="searchInput" placeholder="Введите юзернейм или часть юзернейма...">
                 <button id="searchButton">Найти</button>
-                <button id="randomButton">Рандом</button>
+                <button id="randomButton">Рандом (20)</button>
             </div>
 
             <p id="statusMessage"></p>
@@ -32,8 +32,8 @@
 
     <script>
         // === КОНФИГУРАЦИЯ ФАЙЛОВ ===
+        // Укажите имя вашего единственного файла
         const TELEGRAM_DB_FILE = 'telegram_all_users.txt'; 
-        // Константа LINKS_PER_PAGE удалена, чтобы выводить все ссылки сразу.
         const RANDOM_COUNT = 20; // Количество ссылок для рандомного поиска
 
         // === Переменные и Начальная Загрузка ===
@@ -54,13 +54,14 @@
             return array;
         }
 
-        // Функция для корректного форматирования ссылки Telegram
+        // Функция для корректного форматирования ссылки Telegram (href)
         function formatLink(username) {
+            // Удаляем '@' из начала, если он есть, так как t.me/ не требует его
             const userText = username.trim().startsWith('@') ? username.trim().substring(1) : username.trim();
             return `https://t.me/${userText}`;
         }
 
-        // Загрузка данных из .txt файла
+        // Загрузка данных из .txt файла с исправленным парсингом
         async function loadDatabase() {
             try {
                 statusMessage.textContent = 'Загрузка базы данных Telegram...';
@@ -97,13 +98,14 @@
                 statusMessage.textContent = 'Ничего не найдено.';
                 return;
             }
-
+            
             links.forEach(username => {
                 const linkElement = document.createElement('a');
                 
                 linkElement.href = formatLink(username); 
                 linkElement.target = '_blank';
-                linkElement.textContent = username.startsWith('@') ? username : `@${username}`; 
+                // Отображаем ТОЛЬКО оригинальный текст из базы (без принудительного добавления @).
+                linkElement.textContent = username; 
                 resultsContainer.appendChild(linkElement);
             });
         }
@@ -124,7 +126,6 @@
 
             resetState();
             
-            // Фильтруем юзернеймы, которые содержат запрос
             const foundResults = allLinks.filter(username => {
                 const cleanUsername = username.toLowerCase().trim().replace(/^@/, '');
                 return cleanUsername.includes(query);
@@ -142,15 +143,13 @@
                 return;
             }
 
-            // Перемешиваем весь массив и берем первые RANDOM_COUNT элементов
+            // Берем только 20 случайных элементов
             const shuffledLinks = shuffleArray([...allLinks]);
             const randomLinks = shuffledLinks.slice(0, RANDOM_COUNT);
 
             displayLinks(randomLinks);
             statusMessage.textContent = `Выведено ${randomLinks.length} случайных юзеров.`;
         });
-
-        // Кнопка "Дальше" (nextSearchButton) полностью удалена из логики.
 
         // Запуск загрузки базы при старте
         loadDatabase();
