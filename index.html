@@ -30,7 +30,7 @@
 
     <script>
         // === КОНФИГУРАЦИЯ ФАЙЛОВ ===
-        // !!! ИМЯ ВАШЕГО ЕДИНСТВЕННОГО ФАЙЛА !!!
+        // Укажите имя вашего единственного файла
         const TELEGRAM_DB_FILE = 'telegram_all_users.txt'; 
         const LINKS_PER_PAGE = 20;
 
@@ -51,7 +51,7 @@
             return `https://t.me/${userText}`;
         }
 
-        // Загрузка данных из одного .txt файла
+        // Загрузка данных из одного .txt файла с исправленным парсингом
         async function loadDatabase() {
             try {
                 statusMessage.textContent = 'Загрузка базы данных Telegram...';
@@ -62,17 +62,21 @@
                 }
                 const text = await response.text();
                 
-                // Обрабатываем и очищаем данные
-                allLinks = text.split('\n')
+                // --- ИСПРАВЛЕННЫЙ ПАРСИНГ: УНИФИКАЦИЯ ПЕРЕНОСОВ СТРОК ---
+                // Заменяем переносы строк Windows (\r\n) на стандартные (\n), а затем разделяем.
+                const normalizedText = text.replace(/\r\n/g, '\n'); 
+
+                allLinks = normalizedText.split('\n')
                                 .map(link => link.trim())
                                 .filter(link => link.length > 0);
+                // --- КОНЕЦ ИСПРАВЛЕННОГО ПАРСИНГА ---
 
                 // Убираем дубликаты
                 allLinks = [...new Set(allLinks)];
                 
                 statusMessage.textContent = `База Telegram загружена. Всего юзеров: ${allLinks.length}.`;
             } catch (error) {
-                statusMessage.textContent = `Ошибка: Не удалось загрузить базу. Проверьте консоль для деталей.`;
+                statusMessage.textContent = `Ошибка: Не удалось загрузить базу. Проверьте имя файла "${TELEGRAM_DB_FILE}" и консоль.`;
                 console.error("Ошибка при загрузке базы:", error);
             }
         }
@@ -118,7 +122,7 @@
         // === Обработчики Поиска ===
 
         searchButton.addEventListener('click', () => {
-            const query = searchInput.value.toLowerCase().trim().replace(/^@/, ''); // Удаляем '@' из запроса, если он есть
+            const query = searchInput.value.toLowerCase().trim().replace(/^@/, ''); 
             if (query.length === 0) {
                 statusMessage.textContent = 'Введите запрос для поиска.';
                 return;
@@ -126,7 +130,7 @@
 
             resetState();
             
-            // Фильтруем юзернеймы, которые содержат запрос (без символа @)
+            // Фильтруем юзернеймы, которые содержат запрос
             currentResults = allLinks.filter(username => {
                 const cleanUsername = username.toLowerCase().trim().replace(/^@/, '');
                 return cleanUsername.includes(query);
