@@ -8,7 +8,9 @@
 </head>
 <body>
     <header>
-        <p class="author">Автор - **@BIOtvinkov**</p>
+        <p class="author">
+            Автор - **<a href="https://t.me/BIOtvinkov" target="_blank" style="color: var(--secondary-color); text-decoration: none; text-shadow: 0 0 5px var(--shadow-color);">@BIOtvinkov</a>**
+        </p>
     </header>
 
     <main>
@@ -18,7 +20,7 @@
             <div class="search-block">
                 <input type="text" id="searchInput" placeholder="Введите юзернейм или часть юзернейма...">
                 <button id="searchButton">Найти</button>
-                <button id="nextSearchButton" style="display: none;">Дальше (20)</button>
+                <button id="randomButton">Рандом</button>
             </div>
 
             <p id="statusMessage"></p>
@@ -30,11 +32,132 @@
 
     <script>
         // === КОНФИГУРАЦИЯ ФАЙЛОВ ===
-        // Укажите имя вашего единственного файла
         const TELEGRAM_DB_FILE = 'telegram_all_users.txt'; 
-        const LINKS_PER_PAGE = 20;
+        // Константа LINKS_PER_PAGE удалена, чтобы выводить все ссылки сразу.
+        const RANDOM_COUNT = 20; // Количество ссылок для рандомного поиска
 
         // === Переменные и Начальная Загрузка ===
+        let allLinks = []; 
+        
+        const resultsContainer = document.getElementById('resultsContainer');
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const randomButton = document.getElementById('randomButton');
+        const statusMessage = document.getElementById('statusMessage');
+        
+        // Вспомогательная функция для перемешивания массива (для рандома)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Функция для корректного форматирования ссылки Telegram
+        function formatLink(username) {
+            const userText = username.trim().startsWith('@') ? username.trim().substring(1) : username.trim();
+            return `https://t.me/${userText}`;
+        }
+
+        // Загрузка данных из .txt файла
+        async function loadDatabase() {
+            try {
+                statusMessage.textContent = 'Загрузка базы данных Telegram...';
+                
+                const response = await fetch(TELEGRAM_DB_FILE);
+                if (!response.ok) {
+                    throw new Error(`Ошибка ${response.status}: Не удалось найти файл ${TELEGRAM_DB_FILE}.`);
+                }
+                const text = await response.text();
+                
+                // ИСПРАВЛЕННЫЙ ПАРСИНГ: УНИФИКАЦИЯ ПЕРЕНОСОВ СТРОК
+                const normalizedText = text.replace(/\r\n/g, '\n'); 
+
+                allLinks = normalizedText.split('\n')
+                                .map(link => link.trim())
+                                .filter(link => link.length > 0);
+
+                // Убираем дубликаты
+                allLinks = [...new Set(allLinks)];
+                
+                statusMessage.textContent = `База Telegram загружена. Всего юзеров: ${allLinks.length}.`;
+            } catch (error) {
+                statusMessage.textContent = `Ошибка: Не удалось загрузить базу. Проверьте имя файла "${TELEGRAM_DB_FILE}" и консоль.`;
+                console.error("Ошибка при загрузке базы:", error);
+            }
+        }
+
+        // === Функции Отображения (ВСЕ ССЫЛКИ СРАЗУ) ===
+
+        function displayLinks(links) {
+            resultsContainer.innerHTML = ''; // Очищаем контейнер
+
+            if (links.length === 0) {
+                statusMessage.textContent = 'Ничего не найдено.';
+                return;
+            }
+
+            links.forEach(username => {
+                const linkElement = document.createElement('a');
+                
+                linkElement.href = formatLink(username); 
+                linkElement.target = '_blank';
+                linkElement.textContent = username.startsWith('@') ? username : `@${username}`; 
+                resultsContainer.appendChild(linkElement);
+            });
+        }
+
+        function resetState() {
+            resultsContainer.innerHTML = '';
+            statusMessage.textContent = '';
+        }
+
+        // === Обработчики Кнопок ===
+
+        searchButton.addEventListener('click', () => {
+            const query = searchInput.value.toLowerCase().trim().replace(/^@/, ''); 
+            if (query.length === 0) {
+                statusMessage.textContent = 'Введите запрос для поиска.';
+                return;
+            }
+
+            resetState();
+            
+            // Фильтруем юзернеймы, которые содержат запрос
+            const foundResults = allLinks.filter(username => {
+                const cleanUsername = username.toLowerCase().trim().replace(/^@/, '');
+                return cleanUsername.includes(query);
+            });
+
+            displayLinks(foundResults);
+            statusMessage.textContent = `Найдено ${foundResults.length} юзеров по запросу "${query}".`;
+        });
+        
+        randomButton.addEventListener('click', () => {
+            resetState();
+            
+            if (allLinks.length === 0) {
+                statusMessage.textContent = 'База данных пуста или не загружена.';
+                return;
+            }
+
+            // Перемешиваем весь массив и берем первые RANDOM_COUNT элементов
+            const shuffledLinks = shuffleArray([...allLinks]);
+            const randomLinks = shuffledLinks.slice(0, RANDOM_COUNT);
+
+            displayLinks(randomLinks);
+            statusMessage.textContent = `Выведено ${randomLinks.length} случайных юзеров.`;
+        });
+
+        // Кнопка "Дальше" (nextSearchButton) полностью удалена из логики.
+
+        // Запуск загрузки базы при старте
+        loadDatabase();
+    </script>
+</body>
+</html>
+// === Переменные и Начальная Загрузка ===
         let allLinks = []; 
         let currentResults = []; 
         let currentIndex = 0; 
