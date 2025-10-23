@@ -30,14 +30,14 @@
 
     <script>
         // === КОНФИГУРАЦИЯ ФАЙЛОВ ===
-        // !!! ИЗМЕНИТЕ ЭТОТ МАССИВ, ЧТОБЫ УКАЗАТЬ ИМЕНА ВАШИХ .TXT ФАЙЛОВ С ЮЗЕРНЕЙМАМИ !!!
-        const telegramFiles = ['usernames_base1.txt', 'usernames_base2.txt'];
+        // !!! ИМЯ ВАШЕГО ЕДИНСТВЕННОГО ФАЙЛА !!!
+        const TELEGRAM_DB_FILE = 'telegram_all_users.txt'; 
         const LINKS_PER_PAGE = 20;
 
         // === Переменные и Начальная Загрузка ===
-        let allLinks = []; // Все юзернеймы из .txt файлов
-        let currentResults = []; // Текущие результаты поиска
-        let currentIndex = 0; // Индекс для пагинации
+        let allLinks = []; 
+        let currentResults = []; 
+        let currentIndex = 0; 
 
         const resultsContainer = document.getElementById('resultsContainer');
         const searchInput = document.getElementById('searchInput');
@@ -51,35 +51,28 @@
             return `https://t.me/${userText}`;
         }
 
-        // Загрузка данных из всех .txt файлов
+        // Загрузка данных из одного .txt файла
         async function loadDatabase() {
             try {
-                statusMessage.textContent = 'Загрузка баз данных Telegram...';
-                allLinks = [];
+                statusMessage.textContent = 'Загрузка базы данных Telegram...';
                 
-                const fetchPromises = telegramFiles.map(file => fetch(file).then(response => {
-                    if (!response.ok) {
-                        console.warn(`Файл ${file} не найден или произошла ошибка.`);
-                        return '';
-                    }
-                    return response.text();
-                }));
-
-                const results = await Promise.all(fetchPromises);
+                const response = await fetch(TELEGRAM_DB_FILE);
+                if (!response.ok) {
+                    throw new Error(`Ошибка ${response.status}: Не удалось найти файл ${TELEGRAM_DB_FILE}.`);
+                }
+                const text = await response.text();
                 
-                results.forEach(text => {
-                    const usernames = text.split('\n')
-                                    .map(link => link.trim())
-                                    .filter(link => link.length > 0);
-                    allLinks.push(...usernames);
-                });
+                // Обрабатываем и очищаем данные
+                allLinks = text.split('\n')
+                                .map(link => link.trim())
+                                .filter(link => link.length > 0);
 
-                // Убираем дубликаты и очищаем список
+                // Убираем дубликаты
                 allLinks = [...new Set(allLinks)];
                 
-                statusMessage.textContent = `Базы Telegram загружены. Всего юзеров: ${allLinks.length}.`;
+                statusMessage.textContent = `База Telegram загружена. Всего юзеров: ${allLinks.length}.`;
             } catch (error) {
-                statusMessage.textContent = `Ошибка: Не удалось загрузить базу. Проверьте консоль.`;
+                statusMessage.textContent = `Ошибка: Не удалось загрузить базу. Проверьте консоль для деталей.`;
                 console.error("Ошибка при загрузке базы:", error);
             }
         }
