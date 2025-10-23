@@ -32,9 +32,8 @@
 
     <script>
         // === КОНФИГУРАЦИЯ ФАЙЛОВ ===
-        // Укажите имя вашего единственного файла
         const TELEGRAM_DB_FILE = 'telegram_all_users.txt'; 
-        const RANDOM_COUNT = 20; // Количество ссылок для рандомного поиска
+        const RANDOM_COUNT = 20;
 
         // === Переменные и Начальная Загрузка ===
         let allLinks = []; 
@@ -54,11 +53,27 @@
             return array;
         }
 
+        /**
+         * УНИВЕРСАЛЬНАЯ ОЧИСТКА: Извлекает чистый юзернейм (например, 'username') 
+         * из любой строки (например, 'https://t.me/@username' или 'Hyper:*@username*:')
+         */
+        function extractCleanUsername(linkString) {
+            // Регулярное выражение для поиска имени пользователя Telegram
+            // Ищет любую последовательность символов после t.me/ или @, пока не встретит пробел или другой разделитель.
+            let match = linkString.match(/(?:t\.me\/|@)([a-zA-Z0-9_]{5,})/i);
+
+            if (match && match[1]) {
+                // Возвращаем чистое имя пользователя
+                return match[1];
+            }
+            // Если не найдена ссылка, предполагаем, что это уже чистое имя
+            return linkString.trim().replace(/^@/, '');
+        }
+
         // Функция для корректного форматирования ссылки Telegram (href)
         function formatLink(username) {
-            // Удаляем '@' из начала, если он есть, так как t.me/ не требует его
-            const userText = username.trim().startsWith('@') ? username.trim().substring(1) : username.trim();
-            return `https://t.me/${userText}`;
+            const cleanUser = extractCleanUsername(username);
+            return `https://t.me/${cleanUser}`;
         }
 
         // Загрузка данных из .txt файла с исправленным парсингом
@@ -72,14 +87,13 @@
                 }
                 const text = await response.text();
                 
-                // ИСПРАВЛЕННЫЙ ПАРСИНГ: УНИФИКАЦИЯ ПЕРЕНОСОВ СТРОК
                 const normalizedText = text.replace(/\r\n/g, '\n'); 
 
+                // ВАЖНО: Мы загружаем СЫРЫЕ строки, а чистим их только при отображении/поиске.
                 allLinks = normalizedText.split('\n')
                                 .map(link => link.trim())
                                 .filter(link => link.length > 0);
 
-                // Убираем дубликаты
                 allLinks = [...new Set(allLinks)];
                 
                 statusMessage.textContent = `База Telegram загружена. Всего юзеров: ${allLinks.length}.`;
@@ -92,20 +106,26 @@
         // === Функции Отображения (ВСЕ ССЫЛКИ СРАЗУ) ===
 
         function displayLinks(links) {
-            resultsContainer.innerHTML = ''; // Очищаем контейнер
+            resultsContainer.innerHTML = ''; 
 
             if (links.length === 0) {
                 statusMessage.textContent = 'Ничего не найдено.';
                 return;
             }
             
-            links.forEach(username => {
+            // ИСПРАВЛЕНИЕ: Используем очистку перед отображением
+            links.forEach(rawLink => {
+                const cleanUser = extractCleanUsername(rawLink);
+
                 const linkElement = document.createElement('a');
                 
-                linkElement.href = formatLink(username); 
+                // Создаем корректный href
+                linkElement.href = formatLink(cleanUser); 
                 linkElement.target = '_blank';
-                // Отображаем ТОЛЬКО оригинальный текст из базы (без принудительного добавления @).
-                linkElement.textContent = username; 
+                
+                // Отображаем чистый юзернейм с @
+                linkElement.textContent = `@${cleanUser}`; 
+                
                 resultsContainer.appendChild(linkElement);
             });
         }
@@ -126,9 +146,10 @@
 
             resetState();
             
-            const foundResults = allLinks.filter(username => {
-                const cleanUsername = username.toLowerCase().trim().replace(/^@/, '');
-                return cleanUsername.includes(query);
+            // Фильтруем по чистой версии имени пользователя
+            const foundResults = allLinks.filter(rawLink => {
+                const cleanUser = extractCleanUsername(rawLink).toLowerCase();
+                return cleanUser.includes(query);
             });
 
             displayLinks(foundResults);
@@ -143,7 +164,6 @@
                 return;
             }
 
-            // Берем только 20 случайных элементов
             const shuffledLinks = shuffleArray([...allLinks]);
             const randomLinks = shuffledLinks.slice(0, RANDOM_COUNT);
 
@@ -151,7 +171,6 @@
             statusMessage.textContent = `Выведено ${randomLinks.length} случайных юзеров.`;
         });
 
-        // Запуск загрузки базы при старте
         loadDatabase();
     </script>
 </body>
