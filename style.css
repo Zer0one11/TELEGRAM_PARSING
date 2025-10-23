@@ -44,6 +44,12 @@ header {
     text-shadow: 0 0 5px var(--shadow-color);
 }
 
+/* Добавлено, чтобы ссылка выглядела как обычный текст, но была кликабельна */
+.author a {
+    text-decoration: none; 
+}
+
+
 /* Основной контент */
 main {
     width: 100%;
@@ -83,7 +89,6 @@ h1 {
     display: flex;
     gap: 15px;
     align-items: center;
-    /* Разрешаем перенос на новую строку на мобильных, чтобы кнопки не сливались */
     flex-wrap: wrap; 
 }
 
@@ -97,7 +102,6 @@ h1 {
     font-size: 1.1em;
     transition: border-color 0.3s, box-shadow 0.3s;
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
-    /* На мобильных занимает всю ширину */
     min-width: 100%; 
 }
 
@@ -120,7 +124,6 @@ button {
     transition: background-color 0.3s, transform 0.1s, box-shadow 0.3s;
     box-shadow: 0 4px 15px var(--shadow-color);
     white-space: nowrap;
-    /* Кнопки "Найти" и "Рандом" делят доступное место 50/50 */
     flex-basis: calc(50% - 7.5px); 
     flex-grow: 1;
 }
@@ -183,17 +186,11 @@ button:active {
         padding: 20px;
     }
 
-    .search-block {
-        /* Уже настроено с flex-wrap: wrap; */
-    }
-
     #searchInput {
-        /* Уже настроено с min-width: 100%; */
         margin-bottom: 5px;
     }
 
     button {
-        /* На мобильных кнопки делят место поровну */
         flex-basis: calc(50% - 5px); 
     }
 }
