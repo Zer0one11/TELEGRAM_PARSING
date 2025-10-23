@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск Telegram Юзеров</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <p class="author">Автор - **@BIOtvinkov**</p>
+    </header>
+
+    <main>
+        <div class="controls-container">
+            <h1>💬 Поиск Telegram Юзеров</h1>
+
+            <div class="search-block">
+                <input type="text" id="searchInput" placeholder="Введите юзернейм или часть юзернейма...">
+                <button id="searchButton">Найти</button>
+                <button id="nextSearchButton" style="display: none;">Дальше (20)</button>
+            </div>
+
+            <p id="statusMessage"></p>
+        </div>
+
+        <div id="resultsContainer">
+            </div>
+    </main>
+
+    <script>
+        // === КОНФИГУРАЦИЯ ФАЙЛОВ ===
+        // !!! ИЗМЕНИТЕ ЭТОТ МАССИВ, ЧТОБЫ УКАЗАТЬ ИМЕНА ВАШИХ .TXT ФАЙЛОВ С ЮЗЕРНЕЙМАМИ !!!
+        const telegramFiles = ['usernames_base1.txt', 'usernames_base2.txt'];
+        const LINKS_PER_PAGE = 20;
+
+        // === Переменные и Начальная Загрузка ===
+        let allLinks = []; // Все юзернеймы из .txt файлов
+        let currentResults = []; // Текущие результаты поиска
+        let currentIndex = 0; // Индекс для пагинации
+
+        const resultsContainer = document.getElementById('resultsContainer');
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const nextSearchButton = document.getElementById('nextSearchButton');
+        const statusMessage = document.getElementById('statusMessage');
+        
+        // Функция для корректного форматирования ссылки Telegram
+        function formatLink(username) {
+            const userText = username.trim().startsWith('@') ? username.trim().substring(1) : username.trim();
+            return `https://t.me/${userText}`;
+        }
+
+        // Загрузка данных из всех .txt файлов
+        async function loadDatabase() {
+            try {
+                statusMessage.textContent = 'Загрузка баз данных Telegram...';
+                allLinks = [];
+                
+                const fetchPromises = telegramFiles.map(file => fetch(file).then(response => {
+                    if (!response.ok) {
+                        console.warn(`Файл ${file} не найден или произошла ошибка.`);
+                        return '';
+                    }
+                    return response.text();
+                }));
+
+                const results = await Promise.all(fetchPromises);
+                
+                results.forEach(text => {
+                    const usernames = text.split('\n')
+                                    .map(link => link.trim())
+                                    .filter(link => link.length > 0);
+                    allLinks.push(...usernames);
+                });
+
+                // Убираем дубликаты и очищаем список
+                allLinks = [...new Set(allLinks)];
+                
+                statusMessage.textContent = `Базы Telegram загружены. Всего юзеров: ${allLinks.length}.`;
+            } catch (error) {
+                statusMessage.textContent = `Ошибка: Не удалось загрузить базу. Проверьте консоль.`;
+                console.error("Ошибка при загрузке базы:", error);
+            }
+        }
+
+        // === Функции Отображения ===
+
+        function displayLinks(links, isNewSearch = false) {
+            if (isNewSearch) {
+                resultsContainer.innerHTML = '';
+            }
+
+            const linksToDisplay = links.slice(currentIndex, currentIndex + LINKS_PER_PAGE);
+
+            if (linksToDisplay.length === 0) {
+                statusMessage.textContent = 'Больше юзеров нет.';
+                nextSearchButton.style.display = 'none';
+                return;
+            }
+
+            linksToDisplay.forEach(username => {
+                const linkElement = document.createElement('a');
+                
+                // Создаем ссылку на Telegram
+                linkElement.href = formatLink(username); 
+                
+                linkElement.target = '_blank';
+                // Отображаем юзернейм с символом @
+                linkElement.textContent = username.startsWith('@') ? username : `@${username}`; 
+                resultsContainer.appendChild(linkElement);
+            });
+
+            currentIndex += LINKS_PER_PAGE;
+        }
+
+        function resetState() {
+            currentResults = [];
+            currentIndex = 0;
+            resultsContainer.innerHTML = '';
+            nextSearchButton.style.display = 'none';
+            statusMessage.textContent = '';
+        }
+
+        // === Обработчики Поиска ===
+
+        searchButton.addEventListener('click', () => {
+            const query = searchInput.value.toLowerCase().trim().replace(/^@/, ''); // Удаляем '@' из запроса, если он есть
+            if (query.length === 0) {
+                statusMessage.textContent = 'Введите запрос для поиска.';
+                return;
+            }
+
+            resetState();
+            
+            // Фильтруем юзернеймы, которые содержат запрос (без символа @)
+            currentResults = allLinks.filter(username => {
+                const cleanUsername = username.toLowerCase().trim().replace(/^@/, '');
+                return cleanUsername.includes(query);
+            });
+
+            if (currentResults.length === 0) {
+                statusMessage.textContent = `По запросу "${query}" ничего не найдено.`;
+                return;
+            }
+
+            displayLinks(currentResults, true);
+            statusMessage.textContent = `Найдено ${currentResults.length} юзеров по запросу "${query}".`;
+
+            if (currentResults.length > LINKS_PER_PAGE) {
+                nextSearchButton.style.display = 'block';
+            }
+        });
+
+        nextSearchButton.addEventListener('click', () => {
+            if (currentIndex < currentResults.length) {
+                displayLinks(currentResults);
+            } else {
+                nextSearchButton.style.display = 'none';
+                statusMessage.textContent = 'Все найденные юзеры показаны.';
+            }
+        });
+
+        // Запуск загрузки базы при старте
+        loadDatabase();
+    </script>
+</body>
+</html>
