@@ -1,49 +1,61 @@
 # api/search.py
 
+# ИМПОРТЫ
 from flask import Flask, request, jsonify
 import random
 import os
-
-# Flask требует, чтобы его импортировали, но Vercel Serverless Functions
-# используют его по-своему, не запуская напрямую.
-# Мы определяем простую функцию-обработчик.
+import json
+import pathlib # <- Добавлен для надежной работы с путями
+import re
 
 # === КОНФИГУРАЦИЯ ===
-# Замените на свои секретные ключи! В идеале, ключи нужно хранить в переменных среды Vercel.
+# Замените на свои секретные ключи! 
 VALID_API_KEYS = ["lolkek", "ANOTHER_KEY_67890"] 
-DB_FILE_PATH = 'telegram_all_users.txt'
+
+# Надежное определение пути к файлу базы данных относительно корня проекта
+BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
+DB_FILE_PATH = BASE_DIR / 'telegram_all_users.txt'
+
 USERNAMES = []
 
 # --- Загрузка базы данных при первом запуске функции ---
 def load_database():
     global USERNAMES
-    # Vercel Serverless Function выполняет код один раз и кеширует
     if USERNAMES:
         return
-
-    # Определяем путь к файлу в Serverless среде
-    full_path = os.path.join(os.getcwd(), DB_FILE_PATH)
+    
+    # Используем готовый абсолютный путь
+    full_path = DB_FILE_PATH 
     
     try:
         with open(full_path, 'r', encoding='utf-8') as f:
             raw_lines = f.readlines()
             USERNAMES = [line.strip() for line in raw_lines if line.strip()]
             USERNAMES = list(set(USERNAMES)) # Удаляем дубликаты
-        # print(f"База данных загружена. Всего юзеров: {len(USERNAMES)}")
+        print(f"База данных загружена. Всего юзеров: {len(USERNAMES)}")
     except FileNotFoundError:
         print(f"Ошибка: Файл базы данных {DB_FILE_PATH} не найден!")
-
+        
 load_database()
+
+def extract_clean_username(linkString):
+    """
+    Извлекает чистый юзернейм из любой 'грязной' строки.
+    """
+    # Регулярное выражение для поиска имени пользователя Telegram (минимум 5 символов)
+    match = re.search(r'(?:t\.me\/|@)([a-zA-Z0-9_]{5,})', linkString, re.IGNORECASE)
+
+    if match and match.group(1):
+        return match.group(1)
+    
+    # Если ссылка не найдена, просто чистим строку от @ и пробелов
+    return linkString.strip().replace('@', '')
 
 
 def handler(event, context):
     """
     Основной обработчик Vercel Serverless Function.
-    Это имитация Flask, адаптированная для Vercel.
     """
-    
-    # Мы не можем использовать стандартный request/jsonify Flask напрямую в Vercel,
-    # поэтому нужно парсить данные из 'event'
     
     # 1. Проверка API-ключа
     api_key = event.get('queryStringParameters', {}).get('key')
@@ -55,13 +67,22 @@ def handler(event, context):
         }
 
     # Парсинг параметров
-    query = event.get('queryStringParameters', {}).get('query')
-    is_random = event.get('queryStringParameters', {}).get('random')
-    count = int(event.get('queryStringParameters', {}).get('count', 20))
+    query_params = event.get('queryStringParameters', {})
+    query = query_params.get('query')
+    is_random = query_params.get('random')
+    count = int(query_params.get('count', 20))
     
     results = []
     message = ""
     
+    if not USERNAMES:
+        # Если база не загрузилась (например, из-за ошибки пути)
+         return {
+            "statusCode": 500,
+            "body": "{\"error\": \"База данных не загружена. Проверьте логи Vercel на предмет ошибок FileNotFoundError.\"}",
+            "headers": {"Content-Type": "application/json"}
+        }
+
     if is_random and is_random.lower() == 'true':
         # 2. Рандомный поиск
         if USERNAMES:
@@ -72,7 +93,8 @@ def handler(event, context):
         # 3. Поиск по запросу
         query = query.lower().strip().replace('@', '')
         
-        found = [user for user in USERNAMES if query in user.lower().replace('@', '')]
+        # Фильтруем по чистой версии имени пользователя
+        found = [raw_link for raw_link in USERNAMES if query in extract_clean_username(raw_link).lower()]
         
         results = found
         message = f"Найдено {len(results)} юзеров по запросу '{query}'."
@@ -86,15 +108,10 @@ def handler(event, context):
         }
 
     # 5. Форматируем результат
-    def extract_clean_username(linkString):
-        match = linkString.match(/(?:t\.me\/|@)([a-zA-Z0-9_]{5,})/i)
-        return match[1] if match and match[1] else linkString.trim().replace(/^@/, '')
-
     formatted_results = [
         {
             "username": user, 
-            # Используем extract_clean_username для гарантии чистой ссылки
-            "link": f"https://t.me/{extract_clean_username(user).replace('@', '')}"
+            "link": f"https://t.me/{extract_clean_username(user)}"
         } 
         for user in results
     ]
@@ -112,4 +129,4 @@ def handler(event, context):
         "body": json.dumps(response_body),
         "headers": {"Content-Type": "application/json"}
     }
-  
+    
