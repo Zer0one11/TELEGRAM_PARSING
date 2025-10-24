@@ -5,16 +5,15 @@ from flask import request, jsonify
 import random
 import os
 import json
-import pathlib 
 import re
-# Заглушка, так как Serverless Function не запускается как полноценный Flask-сервер
-# Мы используем его функционал для обработки запросов
 
-# === КОНФИГУРАЦИЯ ===
+# === КОНФИГУРАЦИЯ API ===
 # Замените на свои секретные ключи! 
 VALID_API_KEYS = ["YOUR_SECRET_KEY_12345", "ANOTHER_KEY_67890"] 
 
-# *** ПУТЬ К ФАЙЛУ БАЗЫ ДАННЫХ ДЛЯ API (usernames_base2.txt) ***
+# *** НАСТРОЙКА ПУТИ К БАЗЕ ДАННЫХ ДЛЯ API ***
+# Указываем, что база данных находится в той же папке ('api/')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE_NAME = 'usernames_base2.txt'
 
 USERNAMES = []
@@ -23,7 +22,7 @@ def extract_clean_username(linkString):
     """
     Извлекает чистый юзернейм из любой 'грязной' строки.
     """
-    # Регулярное выражение для поиска имени пользователя Telegram (минимум 5 символов)
+    # Регулярное выражение для поиска имени пользователя Telegram
     match = re.search(r'(?:t\.me\/|@)([a-zA-Z0-9_]{5,})', linkString, re.IGNORECASE)
 
     if match and match.group(1):
@@ -39,9 +38,8 @@ def load_database():
     if USERNAMES:
         return
     
-    # Путь к текущему файлу (search.py)
-    current_dir = pathlib.Path(__file__).resolve().parent 
-    full_path = current_dir / DB_FILE_NAME
+    # Формируем полный путь к файлу в папке 'api/'
+    full_path = os.path.join(BASE_DIR, DB_FILE_NAME)
     
     try:
         with open(full_path, 'r', encoding='utf-8') as f:
@@ -54,13 +52,13 @@ def load_database():
         else:
             USERNAMES = []
             
-        print(f"База данных {DB_FILE_NAME} загружена. Общий итог: {len(USERNAMES)} уникальных юзеров.")
+        print(f"База данных {DB_FILE_NAME} загружена. Итог: {len(USERNAMES)} юзеров.")
 
     except FileNotFoundError:
-        print(f"КРИТИЧЕСКАЯ ОШИБКА: Файл базы данных {DB_FILE_NAME} не найден в папке API.")
+        print(f"КРИТИЧЕСКАЯ ОШИБКА: Файл базы данных {DB_FILE_NAME} не найден по пути: {full_path}")
         USERNAMES = []
     except Exception as e:
-        print(f"Ошибка при чтении файла {DB_FILE_NAME}: {e}")
+        print(f"Общая ошибка при загрузке базы: {e}")
 
 load_database()
 
@@ -68,6 +66,7 @@ load_database()
 def handler(event, context):
     """
     Основной обработчик Vercel Serverless Function.
+    Этот код заменяет стандартное Flask-приложение для работы в Vercel.
     """
     
     # 1. Проверка API-ключа
@@ -92,7 +91,7 @@ def handler(event, context):
         # Если база не загрузилась, возвращаем явную ошибку JSON
          return {
             "statusCode": 500,
-            "body": json.dumps({"error": "База данных API не загружена. Проверьте путь к usernames_base2.txt"}),
+            "body": json.dumps({"error": "База данных API не загружена. Проверьте, что usernames_base2.txt находится в папке api/"}),
             "headers": {"Content-Type": "application/json"}
         }
 
