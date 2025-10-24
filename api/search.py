@@ -10,7 +10,7 @@ import os
 
 # === КОНФИГУРАЦИЯ ===
 # Замените на свои секретные ключи! В идеале, ключи нужно хранить в переменных среды Vercel.
-VALID_API_KEYS = ["YOUR_SECRET_KEY_12345", "ANOTHER_KEY_67890"] 
+VALID_API_KEYS = ["lolkek", "ANOTHER_KEY_67890"] 
 DB_FILE_PATH = 'telegram_all_users.txt'
 USERNAMES = []
 
