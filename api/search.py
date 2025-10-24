@@ -1,24 +1,24 @@
-# api/search.py (ФИНАЛЬНАЯ ВЕРСИЯ)
+# api/search.py
 
 # Импорты
 import random
 import os
 import json
-import re # Встроенный модуль, не требует установки через pip
+import re 
+# Flask импортируется для удовлетворения требований сборки Vercel
+from flask import request, jsonify 
 
 # === КОНФИГУРАЦИЯ API ===
-# Замените на свои секретные ключи! 
 VALID_API_KEYS = ["YOUR_SECRET_KEY_12345", "ANOTHER_KEY_67890"] 
 
 # *** ПУТЬ К БАЗЕ ДАННЫХ ДЛЯ API ***
-# Предполагаем, что usernames_base2.txt находится рядом с search.py (в папке api/)
+# Ищет telegram_all_users.txt в папке, где лежит этот файл (api/)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE_NAME = 'usernames_base2.txt'
+DB_FILE_NAME = 'telegram_all_users.txt' 
 
 USERNAMES = []
 
 def extract_clean_username(linkString):
-    """Извлекает чистый юзернейм."""
     match = re.search(r'(?:t\.me\/|@)([a-zA-Z0-9_]{5,})', linkString, re.IGNORECASE)
     if match and match.group(1):
         return match.group(1)
@@ -31,7 +31,6 @@ def load_database():
     if USERNAMES:
         return
     
-    # Формируем полный путь к файлу в папке 'api/'
     full_path = os.path.join(BASE_DIR, DB_FILE_NAME)
     
     try:
@@ -39,14 +38,14 @@ def load_database():
             raw_lines = f.readlines()
         
         if raw_lines:
-            USERNAMES = [line.strip() for line in raw_lines if line.strip()]
-            USERNAMES = list(set(USERNAMES)) # Удаляем дубликаты
+            USERNAMES = list(set([line.strip() for line in raw_lines if line.strip()]))
         else:
             USERNAMES = []
             
         print(f"База данных {DB_FILE_NAME} загружена. Итог: {len(USERNAMES)} юзеров.")
 
     except FileNotFoundError:
+        # Если эта ошибка появляется в логах Vercel, значит, файл лежит не там.
         print(f"КРИТИЧЕСКАЯ ОШИБКА: Файл базы данных {DB_FILE_NAME} не найден по пути: {full_path}")
         USERNAMES = []
     except Exception as e:
@@ -56,7 +55,9 @@ load_database()
 
 
 def handler(event, context):
-    """Основной обработчик Vercel Serverless Function."""
+    """
+    Основной обработчик Vercel Serverless Function, использующий Flask-подобный синтаксис.
+    """
     
     # 1. Проверка API-ключа
     api_key = event.get('queryStringParameters', {}).get('key')
@@ -77,9 +78,10 @@ def handler(event, context):
     message = ""
     
     if not USERNAMES:
+         # Возвращаем 500 ошибку, если база не загружена
          return {
             "statusCode": 500,
-            "body": json.dumps({"error": "База данных API не загружена."}),
+            "body": json.dumps({"error": "База данных API не загружена. Проверьте, что telegram_all_users.txt находится в папке api/"}),
             "headers": {"Content-Type": "application/json"}
         }
 
@@ -90,9 +92,7 @@ def handler(event, context):
         
     elif query:
         query = query.lower().strip().replace('@', '')
-        
         found = [raw_link for raw_link in USERNAMES if query in extract_clean_username(raw_link).lower()]
-        
         results = found
         message = f"Найдено {len(results)} юзеров по запросу '{query}'."
         
@@ -105,10 +105,7 @@ def handler(event, context):
 
     # 3. Форматирование и возврат JSON
     formatted_results = [
-        {
-            "username": user, 
-            "link": f"https://t.me/{extract_clean_username(user)}"
-        } 
+        {"username": user, "link": f"https://t.me/{extract_clean_username(user)}"} 
         for user in results
     ]
 
