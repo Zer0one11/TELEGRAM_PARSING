@@ -1,34 +1,27 @@
-# api/search.py
+# api/search.py (ФИНАЛЬНАЯ ВЕРСИЯ)
 
-# ИМПОРТЫ
-from flask import request, jsonify
+# Импорты
 import random
 import os
 import json
-import re
+import re # Встроенный модуль, не требует установки через pip
 
 # === КОНФИГУРАЦИЯ API ===
 # Замените на свои секретные ключи! 
 VALID_API_KEYS = ["YOUR_SECRET_KEY_12345", "ANOTHER_KEY_67890"] 
 
-# *** НАСТРОЙКА ПУТИ К БАЗЕ ДАННЫХ ДЛЯ API ***
-# Указываем, что база данных находится в той же папке ('api/')
+# *** ПУТЬ К БАЗЕ ДАННЫХ ДЛЯ API ***
+# Предполагаем, что usernames_base2.txt находится рядом с search.py (в папке api/)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE_NAME = 'usernames_base2.txt'
 
 USERNAMES = []
 
 def extract_clean_username(linkString):
-    """
-    Извлекает чистый юзернейм из любой 'грязной' строки.
-    """
-    # Регулярное выражение для поиска имени пользователя Telegram
+    """Извлекает чистый юзернейм."""
     match = re.search(r'(?:t\.me\/|@)([a-zA-Z0-9_]{5,})', linkString, re.IGNORECASE)
-
     if match and match.group(1):
         return match.group(1)
-    
-    # Если ссылка не найдена, просто чистим строку от @ и пробелов
     return linkString.strip().replace('@', '')
 
 
@@ -45,7 +38,6 @@ def load_database():
         with open(full_path, 'r', encoding='utf-8') as f:
             raw_lines = f.readlines()
         
-        # Обработка всех собранных строк
         if raw_lines:
             USERNAMES = [line.strip() for line in raw_lines if line.strip()]
             USERNAMES = list(set(USERNAMES)) # Удаляем дубликаты
@@ -64,10 +56,7 @@ load_database()
 
 
 def handler(event, context):
-    """
-    Основной обработчик Vercel Serverless Function.
-    Этот код заменяет стандартное Flask-приложение для работы в Vercel.
-    """
+    """Основной обработчик Vercel Serverless Function."""
     
     # 1. Проверка API-ключа
     api_key = event.get('queryStringParameters', {}).get('key')
@@ -78,7 +67,7 @@ def handler(event, context):
             "headers": {"Content-Type": "application/json"}
         }
 
-    # Парсинг параметров
+    # 2. Обработка запроса
     query_params = event.get('queryStringParameters', {})
     query = query_params.get('query')
     is_random = query_params.get('random')
@@ -88,21 +77,18 @@ def handler(event, context):
     message = ""
     
     if not USERNAMES:
-        # Если база не загрузилась, возвращаем явную ошибку JSON
          return {
             "statusCode": 500,
-            "body": json.dumps({"error": "База данных API не загружена. Проверьте, что usernames_base2.txt находится в папке api/"}),
+            "body": json.dumps({"error": "База данных API не загружена."}),
             "headers": {"Content-Type": "application/json"}
         }
 
     if is_random and is_random.lower() == 'true':
-        # 2. Рандомный поиск
         if USERNAMES:
             results = random.sample(USERNAMES, min(count, len(USERNAMES)))
         message = f"Выведено {len(results)} случайных юзеров."
         
     elif query:
-        # 3. Поиск по запросу
         query = query.lower().strip().replace('@', '')
         
         found = [raw_link for raw_link in USERNAMES if query in extract_clean_username(raw_link).lower()]
@@ -111,14 +97,13 @@ def handler(event, context):
         message = f"Найдено {len(results)} юзеров по запросу '{query}'."
         
     else:
-        # 4. Обработка ошибки
         return {
             "statusCode": 400,
             "body": json.dumps({"error": "Требуется параметр 'query' или 'random=true'."}),
             "headers": {"Content-Type": "application/json"}
         }
 
-    # 5. Форматируем результат
+    # 3. Форматирование и возврат JSON
     formatted_results = [
         {
             "username": user, 
@@ -127,7 +112,6 @@ def handler(event, context):
         for user in results
     ]
 
-    # 6. Возвращаем JSON
     response_body = {
         "status": "success",
         "message": message,
