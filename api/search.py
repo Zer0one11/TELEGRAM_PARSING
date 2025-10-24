@@ -1,42 +1,23 @@
 # api/search.py
 
 # ИМПОРТЫ
-from flask import Flask, request, jsonify
+from flask import request, jsonify
 import random
 import os
 import json
-import pathlib # <- Добавлен для надежной работы с путями
+import pathlib 
 import re
+# Заглушка, так как Serverless Function не запускается как полноценный Flask-сервер
+# Мы используем его функционал для обработки запросов
 
 # === КОНФИГУРАЦИЯ ===
 # Замените на свои секретные ключи! 
-VALID_API_KEYS = ["lolkek", "ANOTHER_KEY_67890"] 
+VALID_API_KEYS = ["YOUR_SECRET_KEY_12345", "ANOTHER_KEY_67890"] 
 
-# Надежное определение пути к файлу базы данных относительно корня проекта
-BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
-DB_FILE_PATH = BASE_DIR / 'telegram_all_users.txt'
+# *** ПУТЬ К ФАЙЛУ БАЗЫ ДАННЫХ ДЛЯ API (usernames_base2.txt) ***
+DB_FILE_NAME = 'usernames_base2.txt'
 
 USERNAMES = []
-
-# --- Загрузка базы данных при первом запуске функции ---
-def load_database():
-    global USERNAMES
-    if USERNAMES:
-        return
-    
-    # Используем готовый абсолютный путь
-    full_path = DB_FILE_PATH 
-    
-    try:
-        with open(full_path, 'r', encoding='utf-8') as f:
-            raw_lines = f.readlines()
-            USERNAMES = [line.strip() for line in raw_lines if line.strip()]
-            USERNAMES = list(set(USERNAMES)) # Удаляем дубликаты
-        print(f"База данных загружена. Всего юзеров: {len(USERNAMES)}")
-    except FileNotFoundError:
-        print(f"Ошибка: Файл базы данных {DB_FILE_PATH} не найден!")
-        
-load_database()
 
 def extract_clean_username(linkString):
     """
@@ -52,6 +33,38 @@ def extract_clean_username(linkString):
     return linkString.strip().replace('@', '')
 
 
+# --- Функция для загрузки базы ---
+def load_database():
+    global USERNAMES
+    if USERNAMES:
+        return
+    
+    # Путь к текущему файлу (search.py)
+    current_dir = pathlib.Path(__file__).resolve().parent 
+    full_path = current_dir / DB_FILE_NAME
+    
+    try:
+        with open(full_path, 'r', encoding='utf-8') as f:
+            raw_lines = f.readlines()
+        
+        # Обработка всех собранных строк
+        if raw_lines:
+            USERNAMES = [line.strip() for line in raw_lines if line.strip()]
+            USERNAMES = list(set(USERNAMES)) # Удаляем дубликаты
+        else:
+            USERNAMES = []
+            
+        print(f"База данных {DB_FILE_NAME} загружена. Общий итог: {len(USERNAMES)} уникальных юзеров.")
+
+    except FileNotFoundError:
+        print(f"КРИТИЧЕСКАЯ ОШИБКА: Файл базы данных {DB_FILE_NAME} не найден в папке API.")
+        USERNAMES = []
+    except Exception as e:
+        print(f"Ошибка при чтении файла {DB_FILE_NAME}: {e}")
+
+load_database()
+
+
 def handler(event, context):
     """
     Основной обработчик Vercel Serverless Function.
@@ -62,7 +75,7 @@ def handler(event, context):
     if not api_key or api_key not in VALID_API_KEYS:
         return {
             "statusCode": 401,
-            "body": "{\"error\": \"Недействительный или отсутствующий API-ключ.\"}",
+            "body": json.dumps({"error": "Недействительный или отсутствующий API-ключ."}),
             "headers": {"Content-Type": "application/json"}
         }
 
@@ -76,10 +89,10 @@ def handler(event, context):
     message = ""
     
     if not USERNAMES:
-        # Если база не загрузилась (например, из-за ошибки пути)
+        # Если база не загрузилась, возвращаем явную ошибку JSON
          return {
             "statusCode": 500,
-            "body": "{\"error\": \"База данных не загружена. Проверьте логи Vercel на предмет ошибок FileNotFoundError.\"}",
+            "body": json.dumps({"error": "База данных API не загружена. Проверьте путь к usernames_base2.txt"}),
             "headers": {"Content-Type": "application/json"}
         }
 
@@ -93,7 +106,6 @@ def handler(event, context):
         # 3. Поиск по запросу
         query = query.lower().strip().replace('@', '')
         
-        # Фильтруем по чистой версии имени пользователя
         found = [raw_link for raw_link in USERNAMES if query in extract_clean_username(raw_link).lower()]
         
         results = found
@@ -103,7 +115,7 @@ def handler(event, context):
         # 4. Обработка ошибки
         return {
             "statusCode": 400,
-            "body": "{\"error\": \"Требуется параметр 'query' или 'random=true'.\"}",
+            "body": json.dumps({"error": "Требуется параметр 'query' или 'random=true'."}),
             "headers": {"Content-Type": "application/json"}
         }
 
